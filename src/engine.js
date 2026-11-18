@@ -42,7 +42,9 @@
     // Tag title (case-insensitive) marking a task as already moving.
     inProgressTagTitle: 'IN-PROGRESS',
     // A deadline this many days out (or closer) starts scoring.
-    deadlineWindowDays: 30
+    deadlineWindowDays: 30,
+    // Timeline view: how far ahead the board looks, in months. (Julian: 6.)
+    timelineHorizonMonths: 6
   };
 
   function parseDayStr(dayStr) {
@@ -258,11 +260,94 @@
     };
   }
 
+  function addMonths(dayStr, n) {
+    var d = new Date(parseDayStr(dayStr));
+    d.setUTCMonth(d.getUTCMonth() + n);
+    return toDayStr(d.getTime());
+  }
+
+  /*
+   * The timeline view, translated from Julian's calendar board:
+   * one strip per project that carries dated open tasks. Every dated task
+   * is a milestone dot; the strip ends at the furthest one and sorts by
+   * days remaining. A project whose dated tasks come from a repeat config
+   * is a tracked series — its strip runs to the horizon with a torn edge
+   * and sorts by its next occurrence. Projects with no dated tasks are
+   * not on the board at all: they belong to the dealer, not the timeline.
+   * Exempt projects still show here — exemption is from dealing, not seeing.
+   */
+  function buildTimeline(ctx) {
+    var settings = Object.assign({}, DEFAULT_SETTINGS, ctx.settings || {});
+    var projectById = {};
+    (ctx.projects || []).forEach(function (p) { projectById[p.id] = p; });
+    var todayMs = parseDayStr(ctx.todayStr);
+    var horizonStr = addMonths(ctx.todayStr, settings.timelineHorizonMonths || 6);
+    var horizonMs = parseDayStr(horizonStr);
+    var horizonDays = Math.max(1, Math.round((horizonMs - todayMs) / DAY_MS));
+
+    var byProject = {};
+    (ctx.tasks || []).forEach(function (task) {
+      if (task.isDone || task.parentId) return;
+      var due = dueMs(task);
+      if (due === null) return;
+      var key = task.projectId || '__none__';
+      if (!byProject[key]) byProject[key] = { project: task.projectId ? projectById[task.projectId] : null, dated: [] };
+      byProject[key].dated.push({ task: task, dueMs: due, isRepeat: !!task.repeatCfgId });
+    });
+
+    var strips = [];
+    Object.keys(byProject).forEach(function (key) {
+      var group = byProject[key];
+      var dots = group.dated
+        .slice()
+        .sort(function (a, b) { return a.dueMs - b.dueMs; })
+        .map(function (d) {
+          return {
+            dateStr: toDayStr(d.dueMs),
+            days: Math.round((d.dueMs - todayMs) / DAY_MS),
+            title: d.task.title,
+            isRepeat: d.isRepeat
+          };
+        });
+      var tracked = group.dated.some(function (d) { return d.isRepeat; });
+      var lastDot = dots[dots.length - 1];
+      var endStr = tracked ? horizonStr : lastDot.dateStr;
+      var daysToEnd = tracked ? horizonDays : lastDot.days;
+      var next = null;
+      for (var i = 0; i < dots.length; i++) {
+        if (dots[i].days >= 0) { next = dots[i]; break; }
+      }
+      var clipped = !tracked && daysToEnd > horizonDays;
+      strips.push({
+        projectId: key === '__none__' ? null : key,
+        title: group.project ? group.project.title : '(no project)',
+        tracked: tracked,
+        endStr: endStr,
+        daysToEnd: daysToEnd,
+        nextStr: next ? next.dateStr : null,
+        daysToNext: next ? next.days : null,
+        overdue: !next,
+        clipped: clipped,
+        jagged: tracked || clipped,
+        dots: dots,
+        horizonDays: horizonDays,
+        sortKey: tracked ? (next ? next.days : daysToEnd) : daysToEnd
+      });
+    });
+    strips.sort(function (a, b) {
+      if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+      return a.title.localeCompare(b.title);
+    });
+    return { strips: strips, horizonStr: horizonStr, horizonDays: horizonDays };
+  }
+
   var api = {
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     analyze: analyze,
     deal: deal,
+    buildTimeline: buildTimeline,
     addDays: addDays,
+    addMonths: addMonths,
     toDayStr: toDayStr,
     weekdayOf: weekdayOf,
     lastActivityMs: lastActivityMs

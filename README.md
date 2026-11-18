@@ -12,6 +12,10 @@ Guardrails: subtasks, routines (repeat-config tasks), archived projects, and tas
 
 **You curate the deck.** Any project can be exempted from dealing, entirely, in the settings. Swapping a dealt card is always free — a swap is data, not failure.
 
+## The timeline
+
+Above the settings, below the cards: the board. One strip per project that carries dated open tasks, sorted by days remaining. Every dated task is a milestone dot; the strip ends at the furthest one. A project whose dates come from a repeating task is a *tracked series* — its strip runs to the horizon (default 6 months, adjustable) with a torn edge, and sorts by its next occurrence. Projects with no dated tasks are not on the board at all — they belong to the dealer, not the timeline. Want a project on the board? Give one of its tasks a date.
+
 The dealer only *reads* your tasks. Its settings and deal history live in the plugin's own synced data. Nothing is sent anywhere (`dataSharing: []`).
 
 ## Install

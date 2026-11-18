@@ -84,3 +84,13 @@ run('Light day (Monday)', '2026-11-23', {}, {}, noWildcat);
 const exemptAllBut = projects.filter((p) => p.title !== 'Trading').map((p) => p.id);
 run('Exemption (all projects but Trading exempt)', '2026-11-19',
   { exemptProjectIds: exemptAllBut }, {}, noWildcat);
+
+// Timeline view, as of Wed 2026-11-18, default 6-month horizon.
+const tl = Dealer.buildTimeline({ tasks, projects, tags, settings: {}, todayStr: '2026-11-18' });
+console.log(`\n=== Timeline — today 2026-11-18, horizon ${tl.horizonStr} (${tl.horizonDays}d) ===`);
+if (!tl.strips.length) console.log('  (no strips — no project carries a dated open task)');
+tl.strips.forEach((s) => {
+  console.log(`  "${s.title}" tracked=${s.tracked} end=${s.endStr} (${s.daysToEnd}d)` +
+    ` next=${s.nextStr} (${s.daysToNext}d) overdue=${s.overdue} jagged=${s.jagged}`);
+  s.dots.forEach((d) => console.log(`      dot ${d.dateStr} (${d.days}d)${d.isRepeat ? ' [repeat]' : ''} — ${d.title}`));
+});

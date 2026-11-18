@@ -29,6 +29,22 @@
   .row > label { display: flex; flex-direction: column; gap: 4px; }
   #status { min-height: 1.2em; opacity: .8; }
   .section-label { opacity: .7; text-transform: uppercase; letter-spacing: .06em; font-size: .85em; margin-top: 18px; }
+  .strip { margin: 10px 0 14px; }
+  .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .strip-title { font-weight: 600; }
+  .strip-pill { font-size: .85em; opacity: .85; white-space: nowrap; }
+  .strip-pill.overdue { color: var(--warn, #c62828); opacity: 1; font-weight: 600; }
+  .strip-track { position: relative; height: 12px; border-radius: 6px; margin-top: 4px;
+    background: var(--divider, rgba(0,0,0,.12)); }
+  .strip-bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px;
+    background: var(--primary, #2456a6); opacity: .55; min-width: 3px; }
+  .strip-bar.jagged { border-radius: 6px 0 0 6px;
+    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 22%, calc(100% - 6px) 45%, 100% 68%, calc(100% - 7px) 100%, 0 100%); }
+  .strip-dot { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+    transform: translate(-50%, -50%); background: var(--primary, #2456a6);
+    border: 2px solid var(--background, #fff); box-sizing: border-box; }
+  .strip-dot.next { width: 13px; height: 13px; background: var(--accent, #f2b01e); }
+  .strip-empty { opacity: .7; font-style: italic; }
 </style>
 </head>
 <body>
@@ -45,6 +61,9 @@
 
   <div class="section-label" id="tomorrow-label">Tomorrow</div>
   <div id="tomorrow-card"></div>
+
+  <div class="section-label">Timeline</div>
+  <div id="timeline"></div>
 
   <details id="settings-panel">
     <summary><strong>Dealer settings</strong></summary>
@@ -71,6 +90,9 @@
         </label>
         <label>Max days in a row per project
           <input type="number" id="set-maxconsec" min="1" max="14" step="1" />
+        </label>
+        <label>Timeline horizon (months)
+          <input type="number" id="set-horizon" min="1" max="24" step="1" />
         </label>
         <label>Parked tag titles (comma-separated)
           <input type="text" id="set-excludetags" />
@@ -290,6 +312,61 @@
     container.appendChild(card);
   }
 
+  function renderTimeline() {
+    var container = $('timeline');
+    container.replaceChildren();
+    var result = Dealer.buildTimeline({
+      tasks: tasks, projects: projects, settings: state.settings, todayStr: todayStr
+    });
+    if (!result.strips.length) {
+      var empty = document.createElement('p');
+      empty.className = 'strip-empty';
+      empty.textContent = 'Nothing on the board yet — a project earns a strip when one of its tasks gets a due date. Undated projects live in the deck, not on the board.';
+      container.appendChild(empty);
+      return;
+    }
+    result.strips.forEach(function (strip) {
+      var wrap = document.createElement('div');
+      wrap.className = 'strip';
+
+      var head = document.createElement('div');
+      head.className = 'strip-head';
+      var title = document.createElement('span');
+      title.className = 'strip-title';
+      title.textContent = strip.title;
+      head.appendChild(title);
+      var pill = document.createElement('span');
+      pill.className = 'strip-pill' + (strip.overdue ? ' overdue' : '');
+      if (strip.overdue) {
+        pill.textContent = Math.abs(strip.daysToEnd) + 'd overdue';
+      } else if (strip.tracked) {
+        pill.textContent = 'Next · ' + strip.daysToNext + 'd';
+      } else {
+        pill.textContent = strip.daysToEnd + 'd';
+      }
+      head.appendChild(pill);
+      wrap.appendChild(head);
+
+      var track = document.createElement('div');
+      track.className = 'strip-track';
+      var bar = document.createElement('div');
+      bar.className = 'strip-bar' + (strip.jagged ? ' jagged' : '');
+      var endDays = Math.min(strip.daysToEnd, strip.horizonDays);
+      bar.style.width = Math.max(1.5, (endDays / strip.horizonDays) * 100) + '%';
+      track.appendChild(bar);
+      strip.dots.forEach(function (dot) {
+        if (dot.days < 0 || dot.days > strip.horizonDays) return;
+        var el = document.createElement('span');
+        el.className = 'strip-dot' + (strip.nextStr === dot.dateStr && !strip.overdue ? ' next' : '');
+        el.style.left = ((dot.days / strip.horizonDays) * 100) + '%';
+        el.title = dot.title + ' — ' + dot.dateStr;
+        track.appendChild(el);
+      });
+      wrap.appendChild(track);
+      container.appendChild(wrap);
+    });
+  }
+
   function renderSettings() {
     var list = $('exempt-list');
     list.replaceChildren();
@@ -309,6 +386,7 @@
       ? '' : String(state.settings.lightDay);
     $('set-staleness').value = state.settings.stalenessDays;
     $('set-maxconsec').value = state.settings.maxConsecutiveDays;
+    $('set-horizon').value = state.settings.timelineHorizonMonths || 6;
     $('set-excludetags').value = (state.settings.excludeTagTitles || []).join(', ');
     $('set-wildcat').checked = (state.settings.wildcatChance || 0) > 0;
   }
@@ -319,6 +397,7 @@
     if (todayRecord) renderCard($('today-card'), todayRecord, todayStr, false);
     $('tomorrow-label').textContent = 'Tomorrow — ' + tomorrowStr;
     renderCard($('tomorrow-card'), state.deals[tomorrowStr] || null, tomorrowStr, true);
+    renderTimeline();
     renderSettings();
   }
 
@@ -364,6 +443,7 @@
     state.settings.lightDay = ld === '' ? null : parseInt(ld, 10);
     state.settings.stalenessDays = Math.max(1, parseInt($('set-staleness').value, 10) || 10);
     state.settings.maxConsecutiveDays = Math.max(1, parseInt($('set-maxconsec').value, 10) || 2);
+    state.settings.timelineHorizonMonths = Math.min(24, Math.max(1, parseInt($('set-horizon').value, 10) || 6));
     state.settings.excludeTagTitles = $('set-excludetags').value
       .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     state.settings.wildcatChance = $('set-wildcat').checked ? 1 / 7 : 0;
