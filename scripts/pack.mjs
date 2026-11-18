@@ -1,5 +1,5 @@
 /*
- * Pack the Focus Dealer plugin: inline the engine into index.html, assemble
+ * Pack the HorizonCore plugin: inline the engine into index.html, assemble
  * the flat plugin folder, and zip it the way Super Productivity expects
  * (manifest.json at the top level of the ZIP).
  */
@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = join(root, 'dist', 'focus-dealer');
+const dist = join(root, 'dist', 'horizoncore');
 
 const engine = readFileSync(join(root, 'src', 'engine.js'), 'utf8');
 const template = readFileSync(join(root, 'src', 'index.html'), 'utf8');
@@ -26,7 +26,7 @@ copyFileSync(join(root, 'plugin', 'plugin.js'), join(dist, 'plugin.js'));
 copyFileSync(join(root, 'plugin', 'icon.svg'), join(dist, 'icon.svg'));
 writeFileSync(join(dist, 'index.html'), indexHtml);
 
-const zipPath = join(root, 'dist', 'focus-dealer.zip');
+const zipPath = join(root, 'dist', 'horizoncore.zip');
 execSync(
   `python3 -m zipfile -c ${JSON.stringify(zipPath)} manifest.json plugin.js index.html icon.svg`,
   { cwd: dist, stdio: 'inherit' }

@@ -1,5 +1,5 @@
 /*
- * Focus Dealer — dealing engine.
+ * HorizonCore — dealing engine.
  *
  * Pure functions, no PluginAPI calls: given tasks/projects/tags in the
  * PluginAPI shape, the user's settings, and the deal history, pick ONE task
@@ -269,5 +269,5 @@
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  root.FocusDealer = api;
+  root.HorizonCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

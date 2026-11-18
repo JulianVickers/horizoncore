@@ -1,4 +1,4 @@
-# Focus Dealer
+# HorizonCore
 
 A Super Productivity plugin that deals you **one task a day** — the night before, so it can incubate.
 
@@ -16,7 +16,7 @@ The dealer only *reads* your tasks. Its settings and deal history live in the pl
 
 ## Install
 
-Settings → Plugins → Choose Plugin File → `focus-dealer.zip`. Then open it from the header button ("Focus Card") or the plugins menu.
+Settings → Plugins → Choose Plugin File → `horizoncore.zip`. Then open it from the header button ("Focus Card") or the plugins menu.
 
 ## Known limitation
 
@@ -27,7 +27,7 @@ Super Productivity's PluginAPI does not expose Planner data, so the dealer canno
 - `src/engine.js` — the dealing engine. Pure functions, no PluginAPI calls. This exact file is inlined into the plugin and exercised by the validation harness.
 - `src/index.html` — the iframe UI (engine inlined at build time).
 - `plugin/` — manifest, host-side `plugin.js`, icon.
-- `scripts/pack.mjs` — builds `dist/focus-dealer.zip` (flat, manifest at top level) and prints its SHA-256.
+- `scripts/pack.mjs` — builds `dist/horizoncore.zip` (flat, manifest at top level) and prints its SHA-256.
 - `scripts/validate.mjs` — runs the engine against a real sync-data snapshot (`SP_SNAPSHOT` env var) and prints what it would deal.
 
 Requires Node 20+. No runtime dependencies. For editor autocomplete of the PluginAPI in VS Code, run `npm install` once (it only fetches the type definitions as a devDependency).

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Focus Dealer</title>
+<title>HorizonCore</title>
 <style>
   .card {
     border: 1px solid var(--divider, rgba(0,0,0,.16));
@@ -34,7 +34,7 @@
 <body>
 <main class="page">
   <header class="page-header">
-    <h1><span class="material-icons" style="vertical-align: middle;">style</span> Focus Dealer</h1>
+    <h1><span class="material-icons" style="vertical-align: middle;">style</span> HorizonCore</h1>
   </header>
   <p id="status"></p>
 
@@ -97,7 +97,7 @@
 <script>
 (function () {
   'use strict';
-  var Dealer = window.FocusDealer;
+  var Dealer = window.HorizonCore;
   var state = { version: 1, settings: null, deals: {} };
   var tasks = [], projects = [], tags = [], taskById = {};
   var todayStr = null, tomorrowStr = null;
@@ -135,7 +135,7 @@
           return;
         }
       }
-    } catch (e) { console.warn('[FocusDealer] loadSyncedData failed', e); }
+    } catch (e) { console.warn('[HorizonCore] loadSyncedData failed', e); }
     state.settings = Object.assign({}, Dealer.DEFAULT_SETTINGS);
     state.deals = {};
   }
@@ -143,7 +143,7 @@
   async function saveState() {
     try {
       await PluginAPI.persistDataSynced(JSON.stringify(state));
-    } catch (e) { console.warn('[FocusDealer] persistDataSynced failed', e); }
+    } catch (e) { console.warn('[HorizonCore] persistDataSynced failed', e); }
   }
 
   function ensureDeal(dateStr, excludeTaskIds) {
@@ -348,8 +348,8 @@
         PluginAPI.registerHook(PluginAPI.Hooks.DATA_CHANGED, function () { init(); });
       }
     } catch (e) {
-      console.error('[FocusDealer] init failed', e);
-      setStatus('Something went wrong loading the deck — check the console for [FocusDealer] errors.');
+      console.error('[HorizonCore] init failed', e);
+      setStatus('Something went wrong loading the deck — check the console for [HorizonCore] errors.');
     }
   }
 
