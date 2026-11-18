@@ -28,11 +28,12 @@ Super Productivity's PluginAPI does not expose Planner data, so the dealer canno
 
 ## Development
 
-- `src/engine.js` — the dealing engine. Pure functions, no PluginAPI calls. This exact file is inlined into the plugin and exercised by the validation harness.
-- `src/index.html` — the iframe UI (engine inlined at build time).
-- `plugin/` — manifest, host-side `plugin.js`, icon.
-- `scripts/pack.mjs` — builds `dist/horizoncore.zip` (flat, manifest at top level) and prints its SHA-256.
-- `scripts/validate.mjs` — runs the engine against a real sync-data snapshot (`SP_SNAPSHOT` env var) and prints what it would deal.
+One product, one shared brain, several shells:
+
+- `core/engine.js` — the engine: dealing + timeline model. Pure functions, no host calls. **The single source of truth** — every shell consumes this file, none forks it. It is inlined into the SP plugin at pack time and exercised directly by the validation harness.
+- `plugin-sp/` — the Super Productivity plugin (v0.2.0, working today): `manifest.json`, host-side `plugin.js`, `icon.svg`, the iframe UI template `index.html`, and `pack.mjs`, which builds `dist/horizoncore.zip` (flat, manifest at top level) and prints its SHA-256. Run it with `npm run pack`.
+- `web/` — the web app shell. Scaffold only — see `web/README.md` for the open questions.
+- `scripts/validate.mjs` — runs the engine against a real Super Productivity sync-data snapshot (`SP_SNAPSHOT` env var) and prints what it would deal and draw. Run it with `npm run validate`.
 
 Requires Node 20+. No runtime dependencies. For editor autocomplete of the PluginAPI in VS Code, run `npm install` once (it only fetches the type definitions as a devDependency).
 

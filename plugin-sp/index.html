@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HorizonCore</title>
+<style>
+  .card {
+    border: 1px solid var(--divider, rgba(0,0,0,.16));
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 12px 0 20px;
+  }
+  .card .project { opacity: .75; font-size: .85em; text-transform: uppercase; letter-spacing: .06em; }
+  .card .title { font-size: 1.45em; font-weight: 600; line-height: 1.25; margin: 4px 0 6px; }
+  .card .reason { font-style: italic; opacity: .85; }
+  .card .meta { opacity: .65; font-size: .9em; margin-top: 6px; }
+  .card .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .tree { margin: 10px 0 0; padding-left: 4px; list-style: none; }
+  .tree ul { list-style: none; padding-left: 18px; margin: 2px 0; }
+  .tree li { margin: 2px 0; }
+  .tree .done { opacity: .55; text-decoration: line-through; }
+  .progress { font-size: .9em; opacity: .75; margin-top: 8px; }
+  .done-banner { font-weight: 600; margin-top: 8px; }
+  fieldset { margin: 14px 0; }
+  .exempt-list { columns: 2; column-gap: 24px; }
+  .exempt-list label { display: block; break-inside: avoid; margin: 3px 0; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .row > label { display: flex; flex-direction: column; gap: 4px; }
+  #status { min-height: 1.2em; opacity: .8; }
+  .section-label { opacity: .7; text-transform: uppercase; letter-spacing: .06em; font-size: .85em; margin-top: 18px; }
+  .strip { margin: 10px 0 14px; }
+  .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .strip-title { font-weight: 600; }
+  .strip-pill { font-size: .85em; opacity: .85; white-space: nowrap; }
+  .strip-pill.overdue { color: var(--warn, #c62828); opacity: 1; font-weight: 600; }
+  .strip-track { position: relative; height: 12px; border-radius: 6px; margin-top: 4px;
+    background: var(--divider, rgba(0,0,0,.12)); }
+  .strip-bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px;
+    background: var(--primary, #2456a6); opacity: .55; min-width: 3px; }
+  .strip-bar.jagged { border-radius: 6px 0 0 6px;
+    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 22%, calc(100% - 6px) 45%, 100% 68%, calc(100% - 7px) 100%, 0 100%); }
+  .strip-dot { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+    transform: translate(-50%, -50%); background: var(--primary, #2456a6);
+    border: 2px solid var(--background, #fff); box-sizing: border-box; }
+  .strip-dot.next { width: 13px; height: 13px; background: var(--accent, #f2b01e); }
+  .strip-empty { opacity: .7; font-style: italic; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="page-header">
+    <h1><span class="material-icons" style="vertical-align: middle;">style</span> HorizonCore</h1>
+  </header>
+  <p id="status"></p>
+
+  <div id="today-wrap" hidden>
+    <div class="section-label">Today</div>
+    <div id="today-card"></div>
+  </div>
+
+  <div class="section-label" id="tomorrow-label">Tomorrow</div>
+  <div id="tomorrow-card"></div>
+
+  <div class="section-label">Timeline</div>
+  <div id="timeline"></div>
+
+  <details id="settings-panel">
+    <summary><strong>Dealer settings</strong></summary>
+    <form id="settings-form">
+      <fieldset>
+        <legend>Exempt projects — never dealt</legend>
+        <div class="exempt-list" id="exempt-list"></div>
+      </fieldset>
+      <div class="row">
+        <label>Light day
+          <select id="set-lightday">
+            <option value="">None</option>
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </label>
+        <label>Staleness pull starts (days)
+          <input type="number" id="set-staleness" min="1" max="365" step="1" />
+        </label>
+        <label>Max days in a row per project
+          <input type="number" id="set-maxconsec" min="1" max="14" step="1" />
+        </label>
+        <label>Timeline horizon (months)
+          <input type="number" id="set-horizon" min="1" max="24" step="1" />
+        </label>
+        <label>Parked tag titles (comma-separated)
+          <input type="text" id="set-excludetags" />
+        </label>
+      </div>
+      <p>
+        <label><input type="checkbox" id="set-wildcat" /> Allow wildcat deals (a random card, now and then)</label>
+      </p>
+      <button type="submit" class="btn-primary">Save settings &amp; re-deal tomorrow</button>
+    </form>
+  </details>
+
+  <p style="opacity:.65; font-size:.9em; margin-top:24px;">
+    One card a day, dealt the night before: deadline pressure first, then the
+    task that has waited longest. Swapping is always free — a swap is data,
+    not failure. The dealer only reads your tasks; its settings and history
+    live in the plugin's own synced data. Nothing leaves the app.
+  </p>
+</main>
+
+<script>
+/*__ENGINE__*/
+</script>
+<script>
+(function () {
+  'use strict';
+  var Dealer = window.HorizonCore;
+  var state = { version: 1, settings: null, deals: {} };
+  var tasks = [], projects = [], tags = [], taskById = {};
+  var todayStr = null, tomorrowStr = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function setStatus(msg) { $('status').textContent = msg || ''; }
+  function snack(msg, type) {
+    try { PluginAPI.showSnack({ msg: msg, type: type || 'SUCCESS' }); } catch (e) { /* view-only fallback */ }
+  }
+
+  function localDayStr(d) {
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + dd;
+  }
+
+  async function getTodayStr() {
+    try {
+      if (typeof PluginAPI.getDayContext === 'function') {
+        var ctx = await PluginAPI.getDayContext();
+        if (ctx && ctx.todayStr) return ctx.todayStr;
+      }
+    } catch (e) { /* fall through to local date */ }
+    return localDayStr(new Date());
+  }
+
+  async function loadState() {
+    try {
+      var raw = await PluginAPI.loadSyncedData();
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.version === 1) {
+          state.settings = Object.assign({}, Dealer.DEFAULT_SETTINGS, parsed.settings || {});
+          state.deals = parsed.deals || {};
+          return;
+        }
+      }
+    } catch (e) { console.warn('[HorizonCore] loadSyncedData failed', e); }
+    state.settings = Object.assign({}, Dealer.DEFAULT_SETTINGS);
+    state.deals = {};
+  }
+
+  async function saveState() {
+    try {
+      await PluginAPI.persistDataSynced(JSON.stringify(state));
+    } catch (e) { console.warn('[HorizonCore] persistDataSynced failed', e); }
+  }
+
+  function ensureDeal(dateStr, excludeTaskIds) {
+    var existing = state.deals[dateStr];
+    if (existing && !excludeTaskIds) return existing;
+    var result = Dealer.deal({
+      tasks: tasks, projects: projects, tags: tags,
+      settings: state.settings,
+      dealsByDate: state.deals,
+      targetDateStr: dateStr,
+      excludeTaskIds: excludeTaskIds || []
+    });
+    if (!result) return null;
+    var record = Object.assign({}, result, {
+      dealtAt: Date.now(),
+      swaps: existing ? (existing.swaps || []).concat([existing.taskId]) : []
+    });
+    state.deals[dateStr] = record;
+    return record;
+  }
+
+  function leafProgress(task) {
+    var total = 0, done = 0;
+    (function walk(t, depth) {
+      if (depth > 5) return;
+      var kids = (t.subTaskIds || []).map(function (id) { return taskById[id]; }).filter(Boolean);
+      if (!kids.length) { total++; if (t.isDone) done++; return; }
+      kids.forEach(function (k) { walk(k, depth + 1); });
+    })(task, 0);
+    return { total: total, done: done };
+  }
+
+  function renderTree(task, depth) {
+    var kids = (task.subTaskIds || []).map(function (id) { return taskById[id]; }).filter(Boolean);
+    if (!kids.length || depth > 4) return null;
+    var ul = document.createElement('ul');
+    kids.forEach(function (k) {
+      var li = document.createElement('li');
+      var span = document.createElement('span');
+      span.textContent = (k.isDone ? '✓ ' : '○ ') + k.title;
+      if (k.isDone) span.className = 'done';
+      li.appendChild(span);
+      var sub = renderTree(k, depth + 1);
+      if (sub) li.appendChild(sub);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function renderCard(container, record, dateStr, isTomorrow) {
+    container.replaceChildren();
+    var card = document.createElement('div');
+    card.className = 'card';
+    if (!record) {
+      var p = document.createElement('p');
+      p.textContent = 'No cards in the deck — every open task is parked, exempt, a routine, or already planned. Add tasks, unpark something, or un-exempt a project.';
+      card.appendChild(p);
+      container.appendChild(card);
+      return;
+    }
+    var task = taskById[record.taskId];
+
+    var proj = document.createElement('div');
+    proj.className = 'project';
+    proj.textContent = record.projectTitle || '';
+    card.appendChild(proj);
+
+    var title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = record.taskTitle;
+    card.appendChild(title);
+
+    var reason = document.createElement('div');
+    reason.className = 'reason';
+    reason.textContent = record.reason;
+    card.appendChild(reason);
+
+    var metaBits = [];
+    if (record.staleDays !== undefined && record.staleDays !== null) metaBits.push('untouched ' + record.staleDays + 'd');
+    if (record.daysUntilDue !== null && record.daysUntilDue !== undefined) {
+      metaBits.push(record.daysUntilDue < 0 ? 'overdue' : record.daysUntilDue === 0 ? 'due today' : 'due in ' + record.daysUntilDue + 'd');
+    }
+    if (record.wildcat) metaBits.push('wildcat');
+    if (record.lightDay) metaBits.push('light day');
+    if (metaBits.length) {
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = metaBits.join(' · ');
+      card.appendChild(meta);
+    }
+
+    if (task) {
+      if (task.isDone) {
+        var banner = document.createElement('div');
+        banner.className = 'done-banner';
+        banner.textContent = '✓ Done. The deck notes it, approvingly.';
+        card.appendChild(banner);
+      }
+      var tree = renderTree(task, 0);
+      if (tree) {
+        var wrap = document.createElement('div');
+        var ul = document.createElement('ul');
+        ul.className = 'tree';
+        var li = document.createElement('li');
+        li.appendChild(tree);
+        ul.appendChild(li);
+        wrap.appendChild(ul);
+        card.appendChild(wrap);
+        var prog = leafProgress(task);
+        if (prog.total > 1 || (task.subTaskIds || []).length) {
+          var p2 = document.createElement('div');
+          p2.className = 'progress';
+          p2.textContent = prog.done + ' of ' + prog.total + ' steps done';
+          card.appendChild(p2);
+        }
+      }
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'actions';
+    var openBtn = document.createElement('button');
+    openBtn.className = 'btn-primary';
+    openBtn.textContent = 'Open task';
+    openBtn.addEventListener('click', async function () {
+      try { await PluginAPI.selectTask(record.taskId); }
+      catch (e) { snack('Could not open the task from here.', 'ERROR'); }
+    });
+    actions.appendChild(openBtn);
+
+    if (isTomorrow && !(task && task.isDone)) {
+      var swapBtn = document.createElement('button');
+      swapBtn.textContent = 'Swap card';
+      swapBtn.addEventListener('click', async function () {
+        var exclude = [record.taskId].concat(record.swaps || []);
+        var next = ensureDeal(dateStr, exclude);
+        if (!next) { snack('No more cards in the deck for that day.', 'ERROR'); return; }
+        await saveState();
+        renderAll();
+        snack('Swapped. No judgement — the deck learns.');
+      });
+      actions.appendChild(swapBtn);
+    }
+    card.appendChild(actions);
+    container.appendChild(card);
+  }
+
+  function renderTimeline() {
+    var container = $('timeline');
+    container.replaceChildren();
+    var result = Dealer.buildTimeline({
+      tasks: tasks, projects: projects, settings: state.settings, todayStr: todayStr
+    });
+    if (!result.strips.length) {
+      var empty = document.createElement('p');
+      empty.className = 'strip-empty';
+      empty.textContent = 'Nothing on the board yet — a project earns a strip when one of its tasks gets a due date. Undated projects live in the deck, not on the board.';
+      container.appendChild(empty);
+      return;
+    }
+    result.strips.forEach(function (strip) {
+      var wrap = document.createElement('div');
+      wrap.className = 'strip';
+
+      var head = document.createElement('div');
+      head.className = 'strip-head';
+      var title = document.createElement('span');
+      title.className = 'strip-title';
+      title.textContent = strip.title;
+      head.appendChild(title);
+      var pill = document.createElement('span');
+      pill.className = 'strip-pill' + (strip.overdue ? ' overdue' : '');
+      if (strip.overdue) {
+        pill.textContent = Math.abs(strip.daysToEnd) + 'd overdue';
+      } else if (strip.tracked) {
+        pill.textContent = 'Next · ' + strip.daysToNext + 'd';
+      } else {
+        pill.textContent = strip.daysToEnd + 'd';
+      }
+      head.appendChild(pill);
+      wrap.appendChild(head);
+
+      var track = document.createElement('div');
+      track.className = 'strip-track';
+      var bar = document.createElement('div');
+      bar.className = 'strip-bar' + (strip.jagged ? ' jagged' : '');
+      var endDays = Math.min(strip.daysToEnd, strip.horizonDays);
+      bar.style.width = Math.max(1.5, (endDays / strip.horizonDays) * 100) + '%';
+      track.appendChild(bar);
+      strip.dots.forEach(function (dot) {
+        if (dot.days < 0 || dot.days > strip.horizonDays) return;
+        var el = document.createElement('span');
+        el.className = 'strip-dot' + (strip.nextStr === dot.dateStr && !strip.overdue ? ' next' : '');
+        el.style.left = ((dot.days / strip.horizonDays) * 100) + '%';
+        el.title = dot.title + ' — ' + dot.dateStr;
+        track.appendChild(el);
+      });
+      wrap.appendChild(track);
+      container.appendChild(wrap);
+    });
+  }
+
+  function renderSettings() {
+    var list = $('exempt-list');
+    list.replaceChildren();
+    var sorted = projects.filter(function (p) { return !p.isArchived; })
+      .sort(function (a, b) { return a.title.localeCompare(b.title); });
+    sorted.forEach(function (p) {
+      var label = document.createElement('label');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = p.id;
+      cb.checked = (state.settings.exemptProjectIds || []).indexOf(p.id) !== -1;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + p.title));
+      list.appendChild(label);
+    });
+    $('set-lightday').value = state.settings.lightDay === null || state.settings.lightDay === undefined
+      ? '' : String(state.settings.lightDay);
+    $('set-staleness').value = state.settings.stalenessDays;
+    $('set-maxconsec').value = state.settings.maxConsecutiveDays;
+    $('set-horizon').value = state.settings.timelineHorizonMonths || 6;
+    $('set-excludetags').value = (state.settings.excludeTagTitles || []).join(', ');
+    $('set-wildcat').checked = (state.settings.wildcatChance || 0) > 0;
+  }
+
+  function renderAll() {
+    var todayRecord = state.deals[todayStr] || null;
+    $('today-wrap').hidden = !todayRecord;
+    if (todayRecord) renderCard($('today-card'), todayRecord, todayStr, false);
+    $('tomorrow-label').textContent = 'Tomorrow — ' + tomorrowStr;
+    renderCard($('tomorrow-card'), state.deals[tomorrowStr] || null, tomorrowStr, true);
+    renderTimeline();
+    renderSettings();
+  }
+
+  async function init() {
+    try {
+      setStatus('Shuffling…');
+      await loadState();
+      var results = await Promise.all([
+        PluginAPI.getTasks(), PluginAPI.getAllProjects(), PluginAPI.getAllTags()
+      ]);
+      tasks = results[0] || []; projects = results[1] || []; tags = results[2] || [];
+      taskById = {};
+      tasks.forEach(function (t) { taskById[t.id] = t; });
+
+      todayStr = await getTodayStr();
+      tomorrowStr = Dealer.addDays(todayStr, 1);
+
+      var changed = false;
+      if (!state.deals[todayStr]) { if (ensureDeal(todayStr)) changed = true; }
+      if (!state.deals[tomorrowStr]) { if (ensureDeal(tomorrowStr)) changed = true; }
+      if (changed) await saveState();
+
+      setStatus('');
+      renderAll();
+
+      if (typeof PluginAPI.registerHook === 'function' && PluginAPI.Hooks) {
+        PluginAPI.registerHook(PluginAPI.Hooks.DATA_CHANGED, function () { init(); });
+      }
+    } catch (e) {
+      console.error('[HorizonCore] init failed', e);
+      setStatus('Something went wrong loading the deck — check the console for [HorizonCore] errors.');
+    }
+  }
+
+  $('settings-form').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var exempt = [];
+    $('exempt-list').querySelectorAll('input[type=checkbox]:checked').forEach(function (cb) {
+      exempt.push(cb.value);
+    });
+    var ld = $('set-lightday').value;
+    state.settings.exemptProjectIds = exempt;
+    state.settings.lightDay = ld === '' ? null : parseInt(ld, 10);
+    state.settings.stalenessDays = Math.max(1, parseInt($('set-staleness').value, 10) || 10);
+    state.settings.maxConsecutiveDays = Math.max(1, parseInt($('set-maxconsec').value, 10) || 2);
+    state.settings.timelineHorizonMonths = Math.min(24, Math.max(1, parseInt($('set-horizon').value, 10) || 6));
+    state.settings.excludeTagTitles = $('set-excludetags').value
+      .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    state.settings.wildcatChance = $('set-wildcat').checked ? 1 / 7 : 0;
+    delete state.deals[tomorrowStr];
+    ensureDeal(tomorrowStr);
+    await saveState();
+    renderAll();
+    snack('Settings saved. Tomorrow re-dealt.');
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

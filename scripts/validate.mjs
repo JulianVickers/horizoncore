@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const Dealer = require('../src/engine.js');
+const Dealer = require('../core/engine.js');
 
 const SNAPSHOT = process.env.SP_SNAPSHOT ||
   '/home/hatch/workspace/goals/deadline-timeline/hidden_files/sp/sync-data.json';

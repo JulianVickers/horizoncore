@@ -1,1 +1,13 @@
-{"compilerOptions":{"checkJs":false,"module":"CommonJS","target":"ES2020"},"include":["plugin","src","scripts"]}
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "module": "CommonJS",
+    "target": "ES2020"
+  },
+  "include": [
+    "core",
+    "plugin-sp",
+    "scripts",
+    "web"
+  ]
+}
